@@ -50,6 +50,9 @@
   input.code { width: 100%; font: inherit; font-family: Menlo, Consolas, monospace; font-size: 20px; letter-spacing: 3px; text-transform: uppercase; color: #fff; background: var(--panel); border: 2px solid var(--panel2); border-radius: 14px; padding: 14px; outline: none; user-select: text; -webkit-user-select: text; }
   input.code:focus { border-color: var(--teal); }
   h2 { font-size: 18px; font-weight: 600; margin: 10px 0 6px; }
+  .relink { background: var(--panel); border: 1px solid #5a4a3a; border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-size: 14px; color: #e8c8a0; }
+  .relink .row { margin-top: 10px; }
+  .relink .row button { height: 44px; font-size: 15px; }
   /* camera scanner */
   #scanner { position: fixed; inset: 0; background: #000; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   #scanner video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -86,6 +89,10 @@
 
   <!-- remote -->
   <section id="remote" class="hidden">
+    <div id="relink" class="relink hidden">
+      <div>The TV isn't answering. Is Strem open on it? If its code changed, link again:</div>
+      <div class="row"><button id="relink-scan" class="primary">Scan again</button><button id="relink-type">Type code</button></div>
+    </div>
     <div class="pad">
       <button class="corner back" data-key="461">Back</button>
       <button data-key="38">▲</button>
@@ -116,6 +123,7 @@
     <textarea id="text" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send"></textarea>
     <div class="row"><button id="clear">Clear</button><button class="primary" id="send">Send to TV</button></div>
     <div class="footer"><button id="to-remote">Remote</button><button class="dim" id="unlink">Unlink TV</button></div>
+    <div class="small" id="linkinfo"></div>
   </section>
 </main>
 
@@ -191,7 +199,9 @@ var Crypto = (function () {
     if (secret) start(); else { show('pair'); status('Not linked'); }
   }
   function save(s) { secret = s; try { localStorage.setItem('stremSecret', s); } catch (e) {} }
-  function start() { topic = Crypto.topicFor(secret); show(screen); status('Linked · waiting for the TV…'); listen(); ping(); }
+  var startedAt = 0;
+  function start() { topic = Crypto.topicFor(secret); show(screen); status('Linked · waiting for the TV…'); $('linkinfo').textContent = 'Linked with code ' + secret + ' (compare with Settings on the TV)'; startedAt = +new Date(); lastHello = 0; relink(false); listen(); ping(); }
+  function relink(on) { $('relink').className = 'relink' + (on ? '' : ' hidden'); }
   function listen() {
     if (es) { try { es.close(); } catch (e) {} }
     try {
@@ -200,7 +210,7 @@ var Crypto = (function () {
         var m; try { m = JSON.parse(e.data); } catch (err) { return; }
         if (m.event !== 'message') return;
         var d = Crypto.decrypt(secret, m.message || '');
-        if (d && d.t === 'hello') { lastHello = +new Date(); status('TV linked', true); }
+        if (d && d.t === 'hello') { lastHello = +new Date(); status('TV linked', true); relink(false); }
       };
       es.onerror = function () { setTimeout(listen, 5000); };
     } catch (e) {}
@@ -208,8 +218,9 @@ var Crypto = (function () {
   setInterval(function () {
     if (!secret || document.hidden) return;
     if (!lastHello || (+new Date()) - lastHello > 45000) { ping(); }
-    if (lastHello && (+new Date()) - lastHello > 180000) status('Linked · TV not answering (is Strem open?)');
-  }, 20000);
+    var quiet = lastHello ? (+new Date()) - lastHello : (+new Date()) - startedAt;
+    if (quiet > 12000) { status('Linked · TV not answering'); relink(true); }
+  }, 4000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden && secret) { listen(); ping(); } });
 
   function publish(obj, cb) {
@@ -217,7 +228,7 @@ var Crypto = (function () {
       .then(function (r) { if (cb) cb(r.ok ? null : new Error('relay ' + r.status)); })
       .catch(function (e) { if (cb) cb(e); });
   }
-  function ping() { publish({ t: 'ping' }); }
+  function ping() { publish({ t: 'ping' }, function (err) { if (err) status('Relay unreachable: ' + err.message); }); }
 
   // ---- buttons ----
   function press(el, fn) {
@@ -292,6 +303,8 @@ var Crypto = (function () {
     }).catch(function (e) { stopScan(); status('Camera not available: ' + (e && e.name === 'NotAllowedError' ? 'permission denied' : (e && e.message || e))); });
   }
   press($('scan'), startScan);
+  press($('relink-scan'), function () { startScan(); });
+  press($('relink-type'), function () { show('pair'); $('code').focus(); });
   press($('scan-close'), stopScan);
 
   window.addEventListener('hashchange', load);
