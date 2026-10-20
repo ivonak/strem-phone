@@ -160,6 +160,7 @@ var Crypto = (function () {
     if (k === 36) { publish({ t: 'home' }); return; }
     publish({ t: 'key', v: k });
   };
+  window.addEventListener('hashchange', load);
   load();
 })();
 </script>
