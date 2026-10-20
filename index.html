@@ -2,65 +2,111 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0e0f12">
-<title>Strem phone</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Strem</title>
 <style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; background: #0e0f12; color: #e8e8ea; font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 17px; }
-  body { padding: 16px; padding-bottom: 40px; max-width: 520px; margin: 0 auto; }
-  h1 { font-size: 22px; margin: 6px 0 2px; color: #2fb3b3; }
-  .status { font-size: 14px; color: #9a9ca3; margin-bottom: 14px; min-height: 18px; }
-  .status.on { color: #6fd3a0; }
+  :root { color-scheme: dark; --bg: #0e0f12; --panel: #17191f; --panel2: #1f2229; --text: #e8e8ea; --dim: #8b8e97; --teal: #2fb3b3; --teal-dark: #0b1414; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 17px; overscroll-behavior: none; }
+  body { display: flex; flex-direction: column; padding: calc(env(safe-area-inset-top) + 10px) 16px calc(env(safe-area-inset-bottom) + 12px); max-width: 480px; margin: 0 auto; min-height: 100%; }
   .hidden { display: none !important; }
-  input, textarea { width: 100%; font: inherit; color: #fff; background: #15171c; border: 2px solid #2a2d36; border-radius: 12px; padding: 14px; outline: none; }
-  input:focus, textarea:focus { border-color: #2fb3b3; }
-  textarea { height: 64px; resize: none; font-size: 18px; }
+  header { display: flex; align-items: center; justify-content: space-between; height: 48px; margin-bottom: 6px; }
+  .logo { width: 40px; height: 40px; }
+  .links { display: flex; gap: 8px; }
+  .links button { width: 52px; height: 44px; padding: 0; border-radius: 12px; background: var(--panel); display: flex; align-items: center; justify-content: center; }
+  .links svg { width: 24px; height: 24px; }
+  .status { font-size: 13px; color: var(--dim); text-align: center; min-height: 18px; margin: 4px 0 10px; }
+  .status.on { color: #6fd3a0; }
+  button { font: inherit; color: var(--text); background: var(--panel); border: 0; border-radius: 14px; padding: 0; transition: transform 70ms ease, background 70ms ease; touch-action: manipulation; }
+  button:active, button.down { background: var(--teal); color: var(--teal-dark); transform: scale(0.94); }
+  button svg { fill: currentColor; }
+  main { flex: 1; display: flex; flex-direction: column; }
+  /* remote */
+  .pad { position: relative; width: 100%; max-width: 320px; aspect-ratio: 1; margin: 6px auto 14px; display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; gap: 10px; }
+  .pad button { font-size: 30px; border-radius: 20px; }
+  .pad .ok { background: var(--panel2); font-size: 22px; font-weight: 700; border-radius: 50%; }
+  .pad .corner { background: transparent; }
+  .pad .corner.back { background: var(--panel); font-size: 15px; font-weight: 600; }
+  .media { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .media button { height: 60px; font-size: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .media svg { width: 22px; height: 22px; }
+  .footer { display: flex; gap: 10px; margin-top: auto; padding-top: 14px; }
+  .footer button { flex: 1; height: 50px; font-size: 16px; }
+  .footer button.dim { color: var(--dim); }
+  /* keyboard screen */
+  textarea { width: 100%; font: inherit; font-size: 18px; color: #fff; background: var(--panel); border: 2px solid var(--panel2); border-radius: 14px; padding: 14px; outline: none; height: 110px; resize: none; user-select: text; -webkit-user-select: text; }
+  textarea:focus { border-color: var(--teal); }
   .row { display: flex; gap: 10px; margin-top: 10px; }
-  button { font: inherit; font-size: 17px; color: #e8e8ea; background: #1d1f25; border: 0; border-radius: 12px; padding: 14px 16px; flex: 1; }
-  button:active { background: #2fb3b3; color: #0b1414; }
-  button.primary { background: #2fb3b3; color: #0b1414; font-weight: 600; }
-  button.dim { color: #9a9ca3; }
-  .pad { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 22px; }
-  .pad button { height: 72px; font-size: 26px; }
-  .pad .ok { background: #2a2d36; font-size: 20px; font-weight: 600; }
-  .media { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
-  .media button { height: 56px; font-size: 15px; }
-  .small { font-size: 13px; color: #7d8089; margin-top: 18px; line-height: 1.4; }
-  .code { font-family: Menlo, Consolas, monospace; letter-spacing: 2px; }
-  .section { margin-top: 22px; }
-  label { display: block; font-size: 14px; color: #9a9ca3; margin-bottom: 6px; }
+  .row button { flex: 1; height: 54px; font-size: 17px; }
+  .primary { background: var(--teal); color: var(--teal-dark); font-weight: 600; }
+  .small { font-size: 13px; color: var(--dim); line-height: 1.45; margin-top: 14px; }
+  label { display: block; font-size: 14px; color: var(--dim); margin: 6px 0 8px; }
+  input.code { width: 100%; font: inherit; font-family: Menlo, Consolas, monospace; font-size: 20px; letter-spacing: 3px; text-transform: uppercase; color: #fff; background: var(--panel); border: 2px solid var(--panel2); border-radius: 14px; padding: 14px; outline: none; user-select: text; -webkit-user-select: text; }
+  input.code:focus { border-color: var(--teal); }
+  h2 { font-size: 18px; font-weight: 600; margin: 10px 0 6px; }
 </style>
 </head>
 <body>
-<h1>Strem</h1>
-<div id="status" class="status">Not linked to a TV yet</div>
-
-<div id="pair">
-  <label>Code shown on the TV (Phone screen)</label>
-  <input id="code" class="code" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="e.g. E8XW9GBE7T">
-  <div class="row"><button class="primary" id="link">Link this TV</button></div>
-  <div class="small">On the TV open Strem → Phone and scan the code with the camera, or type the 10 characters here.</div>
-</div>
-
-<div id="main" class="hidden">
-  <label>Type here, then Send. It fills the selected field on the TV, or starts a search.</label>
-  <textarea id="text" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send"></textarea>
-  <div class="row"><button class="dim" id="clear">Clear</button><button class="primary" id="send">Send to TV</button></div>
-
-  <div class="pad">
-    <button class="dim" data-key="461">Back</button><button data-key="38">▲</button><button class="dim" data-key="36" id="home">Home</button>
-    <button data-key="37">◀</button><button class="ok" data-key="13">OK</button><button data-key="39">▶</button>
-    <button class="dim" data-key="412">« 60 s</button><button data-key="40">▼</button><button class="dim" data-key="417">60 s »</button>
+<header>
+  <svg class="logo" viewBox="0 0 40 40" aria-label="Strem"><rect width="40" height="40" rx="11" fill="#2fb3b3"/><path d="M15 11.5v17l14-8.5z" fill="#0b1414"/></svg>
+  <div class="links">
+    <button id="nav-home" aria-label="Home"><svg viewBox="0 0 24 24"><path d="M12 3.2 2.5 11.6h2.8V20h5.2v-5.5h3v5.5h5.2v-8.4h2.8z"/></svg></button>
+    <button id="nav-search" aria-label="Search"><svg viewBox="0 0 24 24"><path d="M10 3.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zm0 2.4a4.1 4.1 0 1 0 0 8.2 4.1 4.1 0 0 0 0-8.2zm5.6 9.2 5 5-1.7 1.7-5-5z"/></svg></button>
+    <button id="nav-settings" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M12 8.3a3.7 3.7 0 1 1 0 7.4 3.7 3.7 0 0 1 0-7.4zm-1.9-5.1h3.8l.5 2.5 1.6.9 2.4-.9 1.9 3.3-1.9 1.6v1.8l1.9 1.6-1.9 3.3-2.4-.9-1.6.9-.5 2.5h-3.8l-.5-2.5-1.6-.9-2.4.9-1.9-3.3 1.9-1.6v-1.8L3.7 9l1.9-3.3 2.4.9 1.6-.9z"/></svg></button>
   </div>
-  <div class="media">
-    <button data-key="415">Play</button><button data-key="19">Pause</button><button data-key="413">Stop</button><button data-key="406">Subtitles</button>
-  </div>
-  <div class="section row"><button class="dim" id="unlink">Unlink TV</button></div>
-  <div class="small">Everything you send is encrypted with the TV's code before it leaves the phone. The relay (ntfy.sh) only carries unreadable text.</div>
-</div>
+</header>
+<div id="status" class="status"></div>
+
+<main>
+  <!-- pairing -->
+  <section id="pair" class="hidden">
+    <h2>Link this phone to the TV</h2>
+    <label>On the TV open Strem → Phone and scan the code with the camera, or type it here.</label>
+    <input id="code" class="code" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="10 characters">
+    <div class="row"><button class="primary" id="link">Link</button></div>
+    <div class="small">Add this page to your home screen (Share → Add to Home Screen). As an app it keeps the link permanently; as a browser tab Safari may forget it after a week without use.</div>
+  </section>
+
+  <!-- remote -->
+  <section id="remote" class="hidden">
+    <div class="pad">
+      <button class="corner back" data-key="461">Back</button>
+      <button data-key="38">▲</button>
+      <button class="corner" disabled></button>
+      <button data-key="37">◀</button>
+      <button class="ok" data-key="13">OK</button>
+      <button data-key="39">▶</button>
+      <button class="corner" disabled></button>
+      <button data-key="40">▼</button>
+      <button class="corner" disabled></button>
+    </div>
+    <div class="media">
+      <button data-key="412"><svg viewBox="0 0 24 24"><path d="M11 6v12L2.5 12zm10 0v12L12.5 12z"/></svg>−60 s</button>
+      <button data-key="415"><svg viewBox="0 0 24 24"><path d="M7 5v14l12-7z"/></svg>Play</button>
+      <button data-key="19"><svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>Pause</button>
+      <button data-key="417"><svg viewBox="0 0 24 24"><path d="M13 6v12l8.5-6zm-10 0v12l8.5-6z"/></svg>+60 s</button>
+      <button data-key="406"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zm3 8h6v2H6zm8 0h4v2h-4zM6 9h4v2H6zm6 0h6v2h-6z"/></svg>Subs</button>
+    </div>
+    <div class="footer">
+      <button id="to-keys">Keyboard</button>
+    </div>
+  </section>
+
+  <!-- keyboard -->
+  <section id="keys" class="hidden">
+    <h2>Send text to the TV</h2>
+    <label>It fills the selected field on the TV, or starts a search.</label>
+    <textarea id="text" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send"></textarea>
+    <div class="row"><button id="clear">Clear</button><button class="primary" id="send">Send to TV</button></div>
+    <div class="footer"><button id="to-remote">Remote</button><button class="dim" id="unlink">Unlink TV</button></div>
+  </section>
+</main>
 
 <script>
 // Shared with the phone page (same code, kept byte-identical in phone/index.html).
@@ -100,22 +146,25 @@ var Crypto = (function () {
 (function () {
   var NTFY = 'https://ntfy.sh/';
   var $ = function (id) { return document.getElementById(id); };
-  var secret = null, topic = null, es = null, lastHello = 0;
-  function status(t, on) { $('status').textContent = t; $('status').className = 'status' + (on ? ' on' : ''); }
+  var secret = null, topic = null, es = null, lastHello = 0, screen = 'remote';
 
+  function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 12); } catch (e) {} }
+  function status(t, on) { $('status').textContent = t; $('status').className = 'status' + (on ? ' on' : ''); }
+  function show(name) {
+    ['pair', 'remote', 'keys'].forEach(function (id) { $(id).className = id === name ? '' : 'hidden'; });
+    if (name !== 'pair') screen = name;
+    if (name === 'keys') setTimeout(function () { $('text').focus(); }, 50);
+  }
+
+  // ---- link ----
   function load() {
     var fromHash = (location.hash || '').replace(/^#/, '').trim().toUpperCase();
     if (/^[A-Z2-9]{10}$/.test(fromHash)) { save(fromHash); try { history.replaceState(null, '', location.pathname); } catch (e) {} }
     try { secret = localStorage.getItem('stremSecret'); } catch (e) {}
-    if (secret) start(); else show(false);
+    if (secret) start(); else { show('pair'); status('Not linked'); }
   }
   function save(s) { secret = s; try { localStorage.setItem('stremSecret', s); } catch (e) {} }
-  function show(linked) { $('pair').className = linked ? 'hidden' : ''; $('main').className = linked ? '' : 'hidden'; }
-  function start() {
-    topic = Crypto.topicFor(secret); show(true); status('Linked · waiting for the TV…');
-    listen(); ping();
-  }
-  // the TV answers on topic-tv; that is how we know it is on and listening
+  function start() { topic = Crypto.topicFor(secret); show(screen); status('Linked · waiting for the TV…'); listen(); ping(); }
   function listen() {
     if (es) { try { es.close(); } catch (e) {} }
     try {
@@ -124,12 +173,14 @@ var Crypto = (function () {
         var m; try { m = JSON.parse(e.data); } catch (err) { return; }
         if (m.event !== 'message') return;
         var d = Crypto.decrypt(secret, m.message || '');
-        if (d && d.t === 'hello') { lastHello = +new Date(); status('TV is on and linked', true); }
+        if (d && d.t === 'hello') { lastHello = +new Date(); status('TV linked', true); }
       };
       es.onerror = function () { setTimeout(listen, 5000); };
     } catch (e) {}
-    setInterval(function () { if (lastHello && (+new Date()) - lastHello > 120000) status('Linked · TV not answering (is Strem open?)'); }, 10000);
   }
+  setInterval(function () { if (secret && lastHello && (+new Date()) - lastHello > 180000) status('Linked · TV not answering (is Strem open?)'); }, 15000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && secret) { listen(); ping(); } });
+
   function publish(obj, cb) {
     fetch(NTFY + topic, { method: 'POST', body: Crypto.encrypt(secret, obj) })
       .then(function (r) { if (cb) cb(r.ok ? null : new Error('relay ' + r.status)); })
@@ -137,30 +188,40 @@ var Crypto = (function () {
   }
   function ping() { publish({ t: 'ping' }); }
 
-  $('link').onclick = function () {
-    var c = $('code').value.trim().toUpperCase();
-    if (!/^[A-Z2-9]{10}$/.test(c)) { status('The code is 10 letters/digits'); return; }
-    save(c); start();
-  };
-  $('send').onclick = function () {
+  // ---- buttons ----
+  function press(el, fn) {
+    el.addEventListener('touchstart', function () { el.className += ' down'; buzz(); }, { passive: true });
+    el.addEventListener('touchend', function () { el.className = el.className.replace(/\s*\bdown\b/g, ''); }, { passive: true });
+    el.addEventListener('touchcancel', function () { el.className = el.className.replace(/\s*\bdown\b/g, ''); }, { passive: true });
+    el.addEventListener('click', function (e) { e.preventDefault(); fn(); });
+  }
+  var keys = document.querySelectorAll('button[data-key]');
+  for (var i = 0; i < keys.length; i++) (function (b) { press(b, function () { publish({ t: 'key', v: parseInt(b.getAttribute('data-key'), 10) }); }); })(keys[i]);
+  press($('nav-home'), function () { publish({ t: 'nav', v: 'home' }); });
+  press($('nav-search'), function () { publish({ t: 'nav', v: 'search' }); show('keys'); });
+  press($('nav-settings'), function () { publish({ t: 'nav', v: 'settings' }); });
+  press($('to-keys'), function () { show('keys'); });
+  press($('to-remote'), function () { show('remote'); });
+  press($('clear'), function () { $('text').value = ''; $('text').focus(); });
+  press($('send'), function () {
     var t = $('text').value.trim(); if (!t) return;
     $('send').disabled = true;
     publish({ t: 'text', v: t }, function (err) {
       $('send').disabled = false;
       if (err) { status('Could not reach the relay: ' + err.message); return; }
-      $('text').value = ''; status('Sent: ' + t, true);
+      $('text').value = ''; status('Sent: ' + t, true); buzz(25);
     });
-  };
-  $('text').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('send').onclick(); } });
-  $('clear').onclick = function () { $('text').value = ''; $('text').focus(); };
-  $('unlink').onclick = function () { try { localStorage.removeItem('stremSecret'); } catch (e) {} secret = null; if (es) es.close(); show(false); status('Not linked to a TV yet'); };
-  var keys = document.querySelectorAll('button[data-key]');
-  for (var i = 0; i < keys.length; i++) keys[i].onclick = function () {
-    var k = parseInt(this.getAttribute('data-key'), 10);
-    if (k === 36) { publish({ t: 'home' }); return; }
-    publish({ t: 'key', v: k });
-  };
+  });
+  $('text').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('send').click(); } });
+  press($('link'), function () {
+    var c = $('code').value.trim().toUpperCase();
+    if (!/^[A-Z2-9]{10}$/.test(c)) { status('The code is 10 letters/digits'); return; }
+    save(c); start();
+  });
+  press($('unlink'), function () { try { localStorage.removeItem('stremSecret'); } catch (e) {} secret = null; if (es) es.close(); show('pair'); status('Not linked'); });
+
   window.addEventListener('hashchange', load);
+  if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('sw.js'); } catch (e) {} }
   load();
 })();
 </script>
