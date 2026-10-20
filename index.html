@@ -55,6 +55,9 @@
   #scanner video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   #scanner .frame { position: relative; width: 66vw; max-width: 320px; aspect-ratio: 1; border: 3px solid rgba(154,208,198,0.9); border-radius: 18px; box-shadow: 0 0 0 100vmax rgba(0,0,0,0.45); }
   #scanner .scan-hint { position: absolute; top: calc(env(safe-area-inset-top) + 24px); left: 16px; right: 16px; text-align: center; color: #fff; font-size: 16px; text-shadow: 0 1px 3px #000; }
+  #scanner .zoom { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 90px); left: 24px; right: 24px; display: flex; align-items: center; gap: 12px; color: #fff; font-size: 14px; }
+  #scanner .zoom input { flex: 1; -webkit-appearance: none; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.4); }
+  #scanner .zoom input::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 28px; border-radius: 50%; background: #9ad0c6; }
   #scanner button { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 24px); left: 50%; transform: translateX(-50%); width: 160px; height: 50px; background: rgba(23,25,31,0.9); }
 </style>
 </head>
@@ -120,6 +123,7 @@
   <video id="cam" playsinline muted autoplay></video>
   <div class="frame"></div>
   <div class="scan-hint" id="scan-hint">Point at the QR code on the TV</div>
+  <div class="zoom"><span>1×</span><input id="zoom" type="range" min="1" max="4" step="0.1" value="1"><span>4×</span></div>
   <button id="scan-close">Cancel</button>
 </div>
 
@@ -243,13 +247,22 @@ var Crypto = (function () {
   // ---- QR scanner (camera + jsQR; BarcodeDetector when the browser has it) ----
   var stream = null, scanTimer = null;
   function codeFrom(text) { var m = /([A-Z2-9]{10})\s*$/.exec(String(text || '').trim().toUpperCase()); return m ? m[1] : null; }
-  function stopScan() { clearTimeout(scanTimer); scanTimer = null; if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } $('scanner').className = 'hidden'; }
+  function stopScan() { clearTimeout(scanTimer); scanTimer = null; if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } $('scanner').className = 'hidden'; $('cam').style.transform = ''; }
   function startScan() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { status('This browser cannot use the camera here; type the code instead.'); return; }
     $('scanner').className = ''; $('scan-hint').textContent = 'Point at the QR code on the TV';
     navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }).then(function (s) {
       stream = s; var v = $('cam'); v.srcObject = s; v.play().catch(function () {});
       var canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
+      // zoom: the camera's own zoom when the phone offers it, otherwise a digital crop of the frame
+      var track = s.getVideoTracks()[0], caps = {}; try { caps = track.getCapabilities ? track.getCapabilities() : {}; } catch (e) {}
+      var zoom = 1, optical = !!(caps.zoom && caps.zoom.max > 1);
+      var slider = $('zoom'); slider.value = 1; v.style.transform = '';
+      slider.oninput = function () {
+        zoom = parseFloat(slider.value);
+        if (optical) { var z = Math.min(caps.zoom.max, Math.max(caps.zoom.min || 1, zoom)); track.applyConstraints({ advanced: [{ zoom: z }] }).catch(function () { optical = false; v.style.transform = 'scale(' + zoom + ')'; }); }
+        else v.style.transform = 'scale(' + zoom + ')';
+      };
       var detector = null; try { if (window.BarcodeDetector) detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) {}
       function found(text) { var c = codeFrom(text); if (!c) { $('scan-hint').textContent = 'That is not a Strem code'; return false; } stopScan(); save(c); buzz(30); start(); return true; }
       function tick() {
@@ -260,7 +273,8 @@ var Crypto = (function () {
             return;
           }
           var w = 480, h = Math.round(v.videoHeight / v.videoWidth * w); canvas.width = w; canvas.height = h;
-          ctx.drawImage(v, 0, 0, w, h);
+          var dz = optical ? 1 : zoom, sw = v.videoWidth / dz, sh = v.videoHeight / dz;
+          ctx.drawImage(v, (v.videoWidth - sw) / 2, (v.videoHeight - sh) / 2, sw, sh, 0, 0, w, h);
           var img = ctx.getImageData(0, 0, w, h);
           var r = window.jsQR ? jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' }) : null;
           if (r && r.data && found(r.data)) return;
