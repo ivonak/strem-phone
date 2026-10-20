@@ -216,12 +216,14 @@ var Crypto = (function () {
       es.onerror = function () { setTimeout(listen, 5000); };
     } catch (e) {}
   }
+  var lastPing = 0;
   setInterval(function () {
     if (!secret || document.hidden) return;
-    if (!lastHello || (+new Date()) - lastHello > 45000) { ping(); }
-    var quiet = lastHello ? (+new Date()) - lastHello : (+new Date()) - startedAt;
-    if (quiet > 12000) { status('Linked · TV not answering'); relink(true); }
-  }, 4000);
+    var now = +new Date();
+    if ((!lastHello || now - lastHello > 180000) && now - lastPing > 60000) { lastPing = now; ping(); }
+    var quiet = lastHello ? now - lastHello : now - startedAt;
+    if (quiet > 15000 && !lastHello) { status('Linked · TV not answering'); relink(true); }
+  }, 5000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden && secret) { listen(); ping(); } });
 
   function publish(obj, cb) {
@@ -229,7 +231,7 @@ var Crypto = (function () {
       .then(function (r) { if (cb) cb(r.ok ? null : new Error('relay ' + r.status)); })
       .catch(function (e) { if (cb) cb(e); });
   }
-  function ping() { publish({ t: 'ping' }, function (err) { if (err) status('Relay unreachable: ' + err.message); }); }
+  function ping() { lastPing = +new Date(); publish({ t: 'ping' }, function (err) { if (err) status(/429/.test(err.message) ? 'Relay busy (rate limit), retrying in a minute' : 'Relay unreachable: ' + err.message); }); }
 
   // ---- buttons ----
   function press(el, fn) {
@@ -251,7 +253,7 @@ var Crypto = (function () {
     $('send').disabled = true;
     publish({ t: 'text', v: t }, function (err) {
       $('send').disabled = false;
-      if (err) { status('Could not reach the relay: ' + err.message); return; }
+      if (err) { status(/429/.test(err.message) ? 'Relay busy (rate limit); wait a few seconds and send again' : 'Could not reach the relay: ' + err.message); return; }
       $('text').value = ''; status('Sent: ' + t, true); buzz(25);
     });
   });
