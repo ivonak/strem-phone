@@ -14,7 +14,7 @@
   :root { color-scheme: dark; --bg: #0e0f12; --panel: #17191f; --panel2: #1f2229; --text: #e8e8ea; --dim: #8b8e97; --teal: #2fb3b3; --teal-dark: #0b1414; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 17px; overscroll-behavior: none; }
-  body { display: flex; flex-direction: column; padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px); max-width: 480px; margin: 0 auto; min-height: 100%; }
+  body { display: flex; flex-direction: column; padding: calc(env(safe-area-inset-top) + 10px) 16px calc(env(safe-area-inset-bottom) + 12px); max-width: 480px; margin: 0 auto; min-height: 100%; }
   .hidden { display: none !important; }
   header { display: flex; align-items: center; justify-content: space-between; height: 48px; margin-bottom: 6px; }
   .logo { width: 40px; height: 40px; }
@@ -308,7 +308,14 @@ var Crypto = (function () {
   press($('scan-close'), stopScan);
 
   window.addEventListener('hashchange', load);
-  if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('sw.js'); } catch (e) {} }
+  if ('serviceWorker' in navigator) {
+    try {
+      navigator.serviceWorker.register('sw.js').then(function (reg) { reg.update(); });
+      // a new version installed in the background: reload once so it is in use right away
+      var reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () { if (reloaded) return; reloaded = true; location.reload(); });
+    } catch (e) {}
+  }
   load();
 })();
 </script>
