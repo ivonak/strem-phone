@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0e0f12">
+<title>Strem phone</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: #0e0f12; color: #e8e8ea; font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 17px; }
+  body { padding: 16px; padding-bottom: 40px; max-width: 520px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 6px 0 2px; color: #2fb3b3; }
+  .status { font-size: 14px; color: #9a9ca3; margin-bottom: 14px; min-height: 18px; }
+  .status.on { color: #6fd3a0; }
+  .hidden { display: none !important; }
+  input, textarea { width: 100%; font: inherit; color: #fff; background: #15171c; border: 2px solid #2a2d36; border-radius: 12px; padding: 14px; outline: none; }
+  input:focus, textarea:focus { border-color: #2fb3b3; }
+  textarea { height: 64px; resize: none; font-size: 18px; }
+  .row { display: flex; gap: 10px; margin-top: 10px; }
+  button { font: inherit; font-size: 17px; color: #e8e8ea; background: #1d1f25; border: 0; border-radius: 12px; padding: 14px 16px; flex: 1; }
+  button:active { background: #2fb3b3; color: #0b1414; }
+  button.primary { background: #2fb3b3; color: #0b1414; font-weight: 600; }
+  button.dim { color: #9a9ca3; }
+  .pad { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 22px; }
+  .pad button { height: 72px; font-size: 26px; }
+  .pad .ok { background: #2a2d36; font-size: 20px; font-weight: 600; }
+  .media { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+  .media button { height: 56px; font-size: 15px; }
+  .small { font-size: 13px; color: #7d8089; margin-top: 18px; line-height: 1.4; }
+  .code { font-family: Menlo, Consolas, monospace; letter-spacing: 2px; }
+  .section { margin-top: 22px; }
+  label { display: block; font-size: 14px; color: #9a9ca3; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<h1>Strem</h1>
+<div id="status" class="status">Not linked to a TV yet</div>
+
+<div id="pair">
+  <label>Code shown on the TV (Phone screen)</label>
+  <input id="code" class="code" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="e.g. E8XW9GBE7T">
+  <div class="row"><button class="primary" id="link">Link this TV</button></div>
+  <div class="small">On the TV open Strem → Phone and scan the code with the camera, or type the 10 characters here.</div>
+</div>
+
+<div id="main" class="hidden">
+  <label>Type here, then Send. It fills the selected field on the TV, or starts a search.</label>
+  <textarea id="text" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="send"></textarea>
+  <div class="row"><button class="dim" id="clear">Clear</button><button class="primary" id="send">Send to TV</button></div>
+
+  <div class="pad">
+    <button class="dim" data-key="461">Back</button><button data-key="38">▲</button><button class="dim" data-key="36" id="home">Home</button>
+    <button data-key="37">◀</button><button class="ok" data-key="13">OK</button><button data-key="39">▶</button>
+    <button class="dim" data-key="412">« 60 s</button><button data-key="40">▼</button><button class="dim" data-key="417">60 s »</button>
+  </div>
+  <div class="media">
+    <button data-key="415">Play</button><button data-key="19">Pause</button><button data-key="413">Stop</button><button data-key="406">Subtitles</button>
+  </div>
+  <div class="section row"><button class="dim" id="unlink">Unlink TV</button></div>
+  <div class="small">Everything you send is encrypted with the TV's code before it leaves the phone. The relay (ntfy.sh) only carries unreadable text.</div>
+</div>
+
+<script>
+// Shared with the phone page (same code, kept byte-identical in phone/index.html).
+// Messages through the relay are RC4-encrypted with key = secret + per-message nonce, then base64.
+// The secret only exists on the TV screen (QR / code) and in the phone's storage.
+var Crypto = (function () {
+  function rc4(key, data) {
+    var S = [], i, j = 0, t, out = [];
+    for (i = 0; i < 256; i++) S[i] = i;
+    for (i = 0; i < 256; i++) { j = (j + S[i] + key.charCodeAt(i % key.length)) & 255; t = S[i]; S[i] = S[j]; S[j] = t; }
+    // drop the first 1024 bytes of keystream (RC4-drop)
+    i = 0; j = 0; var k;
+    for (k = 0; k < 1024 + data.length; k++) {
+      i = (i + 1) & 255; j = (j + S[i]) & 255; t = S[i]; S[i] = S[j]; S[j] = t;
+      if (k >= 1024) out.push(data[k - 1024] ^ S[(S[i] + S[j]) & 255]);
+    }
+    return out;
+  }
+  function utf8Bytes(str) { var s = unescape(encodeURIComponent(str)), b = []; for (var i = 0; i < s.length; i++) b.push(s.charCodeAt(i)); return b; }
+  function bytesUtf8(b) { var s = ''; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); try { return decodeURIComponent(escape(s)); } catch (e) { return s; } }
+  function b64(bytes) { var s = ''; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s); }
+  function unb64(str) { var s = atob(str), b = []; for (var i = 0; i < s.length; i++) b.push(s.charCodeAt(i)); return b; }
+  var ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  function randomCode(n) { var s = ''; for (var i = 0; i < n; i++) s += ALPHA.charAt(Math.floor(Math.random() * ALPHA.length)); return s; }
+  // FNV-1a over the secret, twice with different seeds: the relay topic name
+  function imul(a, b) { var ah = (a >>> 16) & 0xffff, al = a & 0xffff, bh = (b >>> 16) & 0xffff, bl = b & 0xffff; return (al * bl + (((ah * bl + al * bh) << 16) >>> 0)) | 0; }
+  function fnv(str, seed) { var h = seed >>> 0; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = imul(h, 16777619) >>> 0; } return ('00000000' + h.toString(16)).slice(-8); }
+  function topicFor(secret) { return 'strem-' + fnv(secret, 2166136261) + fnv(secret + '|tv', 0x9747b28c); }
+  function encrypt(secret, obj) { var nonce = randomCode(8); return nonce + '.' + b64(rc4(secret + nonce, utf8Bytes(JSON.stringify(obj)))); }
+  function decrypt(secret, text) {
+    var i = text.indexOf('.'); if (i !== 8) return null;
+    try { return JSON.parse(bytesUtf8(rc4(secret + text.slice(0, 8), unb64(text.slice(9))))); } catch (e) { return null; }
+  }
+  return { randomCode: randomCode, topicFor: topicFor, encrypt: encrypt, decrypt: decrypt };
+})();
+
+(function () {
+  var NTFY = 'https://ntfy.sh/';
+  var $ = function (id) { return document.getElementById(id); };
+  var secret = null, topic = null, es = null, lastHello = 0;
+  function status(t, on) { $('status').textContent = t; $('status').className = 'status' + (on ? ' on' : ''); }
+
+  function load() {
+    var fromHash = (location.hash || '').replace(/^#/, '').trim().toUpperCase();
+    if (/^[A-Z2-9]{10}$/.test(fromHash)) { save(fromHash); try { history.replaceState(null, '', location.pathname); } catch (e) {} }
+    try { secret = localStorage.getItem('stremSecret'); } catch (e) {}
+    if (secret) start(); else show(false);
+  }
+  function save(s) { secret = s; try { localStorage.setItem('stremSecret', s); } catch (e) {} }
+  function show(linked) { $('pair').className = linked ? 'hidden' : ''; $('main').className = linked ? '' : 'hidden'; }
+  function start() {
+    topic = Crypto.topicFor(secret); show(true); status('Linked · waiting for the TV…');
+    listen(); ping();
+  }
+  // the TV answers on topic-tv; that is how we know it is on and listening
+  function listen() {
+    if (es) { try { es.close(); } catch (e) {} }
+    try {
+      es = new EventSource(NTFY + topic + '-tv/sse');
+      es.onmessage = function (e) {
+        var m; try { m = JSON.parse(e.data); } catch (err) { return; }
+        if (m.event !== 'message') return;
+        var d = Crypto.decrypt(secret, m.message || '');
+        if (d && d.t === 'hello') { lastHello = +new Date(); status('TV is on and linked', true); }
+      };
+      es.onerror = function () { setTimeout(listen, 5000); };
+    } catch (e) {}
+    setInterval(function () { if (lastHello && (+new Date()) - lastHello > 120000) status('Linked · TV not answering (is Strem open?)'); }, 10000);
+  }
+  function publish(obj, cb) {
+    fetch(NTFY + topic, { method: 'POST', body: Crypto.encrypt(secret, obj) })
+      .then(function (r) { if (cb) cb(r.ok ? null : new Error('relay ' + r.status)); })
+      .catch(function (e) { if (cb) cb(e); });
+  }
+  function ping() { publish({ t: 'ping' }); }
+
+  $('link').onclick = function () {
+    var c = $('code').value.trim().toUpperCase();
+    if (!/^[A-Z2-9]{10}$/.test(c)) { status('The code is 10 letters/digits'); return; }
+    save(c); start();
+  };
+  $('send').onclick = function () {
+    var t = $('text').value.trim(); if (!t) return;
+    $('send').disabled = true;
+    publish({ t: 'text', v: t }, function (err) {
+      $('send').disabled = false;
+      if (err) { status('Could not reach the relay: ' + err.message); return; }
+      $('text').value = ''; status('Sent: ' + t, true);
+    });
+  };
+  $('text').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('send').onclick(); } });
+  $('clear').onclick = function () { $('text').value = ''; $('text').focus(); };
+  $('unlink').onclick = function () { try { localStorage.removeItem('stremSecret'); } catch (e) {} secret = null; if (es) es.close(); show(false); status('Not linked to a TV yet'); };
+  var keys = document.querySelectorAll('button[data-key]');
+  for (var i = 0; i < keys.length; i++) keys[i].onclick = function () {
+    var k = parseInt(this.getAttribute('data-key'), 10);
+    if (k === 36) { publish({ t: 'home' }); return; }
+    publish({ t: 'key', v: k });
+  };
+  load();
+})();
+</script>
+</body>
+</html>
