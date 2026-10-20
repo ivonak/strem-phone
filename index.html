@@ -113,6 +113,7 @@
     </div>
     <div class="footer">
       <button id="to-keys">Keyboard</button>
+      <button class="dim" id="relink-now">Relink TV</button>
     </div>
   </section>
 
@@ -304,6 +305,7 @@ var Crypto = (function () {
   }
   press($('scan'), startScan);
   press($('relink-scan'), function () { startScan(); });
+  press($('relink-now'), function () { if (es) { try { es.close(); } catch (e) {} } startScan(); });
   press($('relink-type'), function () { show('pair'); $('code').focus(); });
   press($('scan-close'), stopScan);
 
